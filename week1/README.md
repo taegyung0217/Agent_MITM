@@ -1,4 +1,4 @@
-#docker-compose.yml 파일 만들기
+## docker-compose.yml 파일 만들기
 compose 파일: 도커애플리케이션의 서비스, 네트워크, 볼륨 등의 설정을 yaml 형식으로 작성하는 파일
  구성 요소는 services: version: 등 다양함 (근데 version은 설정 따로 안 해도 됨)
  service: 여러 컨테이너 정의할 때 씀
@@ -8,4 +8,20 @@ compose 파일: 도커애플리케이션의 서비스, 네트워크, 볼륨 등�
 - services: 에서 언급한 agent-net은 밑의 networks: 에서 정의한 이름!
 - 그리고 bridge는 컨테이너들을 동일한 가상 LAN에 연결하는 리눅스 기반 가상 네트워크 스위치
 
+## Agent_a 컨테이너 만들기
+- HTTP POST 요청 생성
+- JSON 형태의 tool-call 메시지 전송
+  -> client 역할!
+agent_a 파일 구조
+|agent_a/
+|  Dockerfile
+|  agent_a.py
 
+### agent_a.py
+<img width="1199" height="1063" alt="image" src="https://github.com/user-attachments/assets/81a32fe6-fc85-45b3-93ae-7b628291b48f" />
+- tool_call에서 각 key, value는 통신에서 자체저으로 의미를 갖는 건 아니고 수신자 쪽에서 if(tool == "read_file") 뭐 이런 식으로 쓰임!
+  
+### Dockerfile
+<img width="751" height="479" alt="image" src="https://github.com/user-attachments/assets/33dc6d0a-218d-41fb-8f6c-f1d432637f25" />
+- From: Python 3.11이 이미 설치된 리눅스 (slim한!!) 이미지 사용
+- 
