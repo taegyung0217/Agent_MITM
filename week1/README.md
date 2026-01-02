@@ -49,7 +49,7 @@ agent_a 파일 구조
 1. 이미지 생성 (build) -> 2. 컨테이너 실행 (run)
 -> docker compose up으로 한 번에 하기
 
-### Windows PowerShell 1
+### Windows PowerShell 1 (트래픽(로그) 확인)
 Docker Desktop을 실행시킨 채로 프로젝트 파일에서 shell을 열어서
 ```
 docker compose up --build (terminal 1)
@@ -62,7 +62,7 @@ docker compose up --build (terminal 1)
 <img width="2367" height="692" alt="스크린샷 2026-01-03 002310" src="https://github.com/user-attachments/assets/f84e438a-957c-4a64-91e8-b0266e9a3ad5" />
 만들어진 컨테이너와, 그 사이의 통신 트래픽이 기록돼 있다!!
 
-### Windows PowerShell 2
+### Windows PowerShell 2 (패킷 캡처)
 첫 번째 shell과 도커를 끄지 않은 채로 새로운 shell을 열어서
 ```
 docker compose exec agent_b tcpdump -i eth0 -s 0 -w /tmp/agent_http.pcap tcp port 8000
@@ -78,9 +78,42 @@ docker compose exec agent_b tcpdump -i eth0 -s 0 -w /tmp/agent_http.pcap tcp por
 
 이렇게 총 몇 개의 패킷을 capture했는지에 대한 정보가 나온다!!
 
-### Windows PowerShell 3
+### Windows PowerShell 3 (트래픽을 발생시키기)
 그리고 다시 새로운 shell을 열어 
 ```
 docker compose restart agent_a
 ```
-를 입력해 다시 
+를 입력하면 Agent A가 다시 실행되고 -> POST /tool 발생하고,
+지금 켜 둔 tcpdump가 이 패킷을 잡는 거다!!
+
+그래서 다시 도커로 가서 살펴보면
+<img width="2364" height="815" alt="스크린샷 2026-01-03 004728" src="https://github.com/user-attachments/assets/a23b440d-a3d0-4026-9718-1cbee6c17f4b" />
+이렇게 트래픽이 추가돼있는 것을 볼 수 있다
+
+### Windows PowerShell 2
+다시 아까 두 번째 shell로 가서 
+```
+$cid = docker compose ps -q agent_b
+docker cp ${cid}:/tmp/agent_http.pcap .\agent_http.pcap
+```
+를 입력해 캡처된 패킷 파일을 컨테이너에서 내 PC로 복사해준다 (아까처럼 컨테이너가 계속 존재하지 않다고 나오길래 이름을 변수에 저장해서 명령어를 실행했다)
+패킷 캡처 자체는 이미 tcpdump가 끝냈고, 이건 결과물 회수 단계!!
+
+<img width="2879" height="238" alt="스크린샷 2026-01-03 004435" src="https://github.com/user-attachments/assets/4d00f2e2-6f2b-4d24-9473-57dd47712080" />
+
+그러면 Successfully copied... 가 나온다
+
+
+## Wireshark로 패킷 분석하기
+만약 아까 캡처한 패킷들을 제대로 저장했다면 프로젝트 파일에 
+<img width="181" height="63" alt="image" src="https://github.com/user-attachments/assets/191e1018-b51f-462c-bb62-9ccf8233e6fc" />
+이렇게 파일이 하나 저장되어 있을 것이다
+
+이걸 wireshark에서 분석해보는 거다!
+
+<img width="2879" height="1706" alt="image" src="https://github.com/user-attachments/assets/46415b86-42aa-4ccd-9177-21ad22e815e5" />
+위의 Packet List는 패킷 한 줄 한 줄 POST /tool HTTP/1.1 같은 요약 정보를 보여주고,
+
+아래 왼 쪽의 Packet Details는 TCP / HTTP / Header 구조를 사람이 읽기 좋게 해석된 결과를 보여주고,
+
+아래 오른 쪽의 바이너리 같아 보이는 것들은 네트워크를 실제로 흐른 패킷의 원본 바이트(raw bytes)!
