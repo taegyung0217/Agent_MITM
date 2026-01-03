@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  agent_b:
+    build: ./agent_b
+    container_name: agent-b
+    ports:
+      - "8000:8000"
+    networks:
+      - agent-net
+
+  agent_a:
+    build: ./agent_a
+    container_name: agent-a
+    depends_on:
+      - agent_b
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge
