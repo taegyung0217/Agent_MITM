@@ -123,8 +123,74 @@ path = req.args.get("path", "")
 
 <br />
 
-## 컨테이너 만들기
+## 컨테이너 만들기 (week1에서 이미 했던 내용!)
 
 ### terminal1
 이제 만든 파일들을 바타으로 컨테이너를 만든다.
 docker-compose.yml 파일이 있는 (나는 week2 폴더) 위치에서 터미널을 열고 ` docker compose up --build ` 실행
+그러면 도커에 컨테이너가 week2라는 이름으로 만들어져있을 것이다!
+
+### terminal2
+어 뭐야
+
+<img width="582" height="48.5" alt="스크린샷 2026-01-10 134843" src="https://github.com/user-attachments/assets/803cf52a-93d8-45c4-b99c-a7bbf1da26a7" />
+
+
+agent_b 컨테이너가 없다고 한다.
+
+<img width="719.75" height="48.75" alt="스크린샷 2026-01-10 135056" src="https://github.com/user-attachments/assets/1e0737cb-9ede-49d2-8d94-b9b16a0ff767" />
+
+그래서 ` docker compose ps `로 확인해보니 tool_server만 돌아가고 있다.
+
+<img width="2879" height="1614" alt="스크린샷 2026-01-10 135241" src="https://github.com/user-attachments/assets/b89ca461-3720-495b-8d71-88e11456c156" />
+
+` docker compose logs agent_a `로 확인해보니 A는 B가 없어서 계속 연결을 실패한 모양이고, 
+
+<img width="2879" height="629" alt="스크린샷 2026-01-10 140401" src="https://github.com/user-attachments/assets/f33b11a9-3817-4e56-bc4b-d78067256ca8" />
+
+` docker compose logs agent_b `로 확인해보니 내가 requests를 설치 안 했나 보다.
+
+허겁지겁 B의 Dockerfile에서 ` RUN pip install --no-cache-dir fastapi uvicorn requests `로 뒤에 requests를 추가해준다.
+
+다시 빌드해주기...
+
+<img width="500" height="306" alt="image" src="https://github.com/user-attachments/assets/dd48f776-4402-4182-8cc0-5f4bc5d185c8" />
+
+아 뭔가 잘 된 것 같다.
+
+<img width="2879" height="200" alt="스크린샷 2026-01-10 141401" src="https://github.com/user-attachments/assets/90612a55-55aa-4c8b-b5e8-4593f0e18fd5" />
+
+<br />
+
+(아 또 문제가 생김) tool_server의 Dockerfile에서 CMD ["uvicorn", "tool_server:app", "--host", "0.0.0.0", "--port", "5000"]로 바꿔줘야 포트끼리 잘 연결된다... 이것까지 바꿔주기...!
+
+<img width="2879" height="270" alt="스크린샷 2026-01-10 143108" src="https://github.com/user-attachments/assets/a4992ea2-9d45-4e1a-a88c-7177f18664d5" />
+
+포트번호 200으로 잘 나온다!!
+
+이제 다 수습했으니 다시 ` docker compose exec agent_b tcpdump -i eth0 -s 0 -w /tmp/agent_http.pcap tcp port 8000 `로 패킷 캡처를 하자. 
+
+### terminal3
+` docker compose restart agent_a `로 트래픽 다시 발생싴키기
+
+<img width="1974" height="453" alt="스크린샷 2026-01-10 143358" src="https://github.com/user-attachments/assets/5de36dfd-75a0-4b5a-a3fb-7545078c4813" />
+
+그럼 도커에는 이렇게 기록된다!
+
+### terminal2
+이제 Ctrl + C를 눌러 종료하면 패킷 캡처 끝내기
+
+### 패킷 캡처 마무리
+<img width="2879" height="189" alt="스크린샷 2026-01-10 145234" src="https://github.com/user-attachments/assets/1b86a188-9298-4e3c-8ba4-7ef1c033d63f" />
+
+<img width="2879" height="489" alt="스크린샷 2026-01-10 145003" src="https://github.com/user-attachments/assets/048a2a42-8ede-42a6-b3d3-f243a9d1923b" />
+
+tcpdump 실행 -> restart agent_a -> ctrl+c로 캡처 중지
+그러면 week2 폴더 아래에 pcap 파일이 하나 만들어져 있을 거다!
+
+<br />
+
+## WireShark
+
+
+
