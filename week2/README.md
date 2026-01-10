@@ -171,7 +171,7 @@ agent_b 컨테이너가 없다고 한다.
 이제 다 수습했으니 다시 ` docker compose exec agent_b tcpdump -i eth0 -s 0 -w /tmp/agent_http.pcap tcp port 8000 `로 패킷 캡처를 하자. 
 
 ### terminal3
-` docker compose restart agent_a `로 트래픽 다시 발생싴키기
+` docker compose restart agent_a `로 트래픽 다시 발생시키기
 
 <img width="1974" height="453" alt="스크린샷 2026-01-10 143358" src="https://github.com/user-attachments/assets/5de36dfd-75a0-4b5a-a3fb-7545078c4813" />
 
@@ -219,7 +219,7 @@ IP를 보면, 172.20.0.2  /  172.20.0.3  /  172.20.0.4 로 3개가 등장하니 
 
 ### 패킷14
 - 이 패킷은 agent_b가 tool_server에게 보내는 tool-call이다.
-- agent_a로부터 받은 payload인 req의 prompt 값에 "file"이라는 문자열이 있으니, if문에 들어가 가 썼던 코드대로 tool_request JSON이 전해졌다.
+- agent_a로부터 받은 payload인 req의 prompt 값에 "file"이라는 문자열이 있으니, if문으로 들어가 내가 썼던 코드대로 tool_request JSON이 전해졌다.
 - 형태는 ` stage: tool_call, tool: read_file, args.path: /data/hello.txt `
 
 <br />
@@ -235,8 +235,44 @@ IP를 보면, 172.20.0.2  /  172.20.0.3  /  172.20.0.4 로 3개가 등장하니 
 - agent_a는 (내가 그렇게 코딩해둠) hello.txt 내용은 못 받고, agent_b가 tool_server로부터 읽은 메시지를 전달 받았든, 못 받았든 "Echo: {req.prompt}" 즉 agent_a가 payload에 담았던 "read file"을 echo로 받는다.
   
 (어... 지금 생각해보면 @app.post("/tool")로 받은 결과를 써야 하는 건..가?)
+(그래서 제출한 파일에는 "file" 문자열이 있는 경우에는 그 메시지를 agent_a까지도 받도록 수정해둠)
 
 <br />
 
 ### 그 외
 - 패킷 6 -> 14 -> 18 -> 25의 trace_id모두 같은데, 이건 하나의 요청 흐름이 네트워크 상태에서 이어진 모습을 보여준다!
+
+<br />
+
+## prompt 바꿔보기
+agent_a가 agent_b에게 보내는 JSON에서 prompt 값을 바꾸어 agent_b가 tool-call을 부르지 않도록 해볼 거다.
+
+agent_a.py에서 
+
+```
+payload = {
+        "trace_id": trace_id,
+        "stage": "prompt",
+        "prompt": "this is not a reading request",
+    }
+```
+
+payload에서 prompt값만 바꿔서 이번에는 tool-call을 안 보내게 했다.
+
+<img width="1440" height="845" alt="image" src="https://github.com/user-attachments/assets/b8833d40-b192-4bb2-bf02-00cabe430db8" />
+
+tool_server를 호출하지 않고, 바로 agent_b가 agent_a에게 답을 준다.
+
+<br />
+
+
+## +@) agent_a도 메시지를 받도록 수정한 결과
+<img width="1440" height="737" alt="image" src="https://github.com/user-attachments/assets/f0d22b58-b7c8-4c6e-a9ba-69ac7cf91da1" />
+
+<br />
+
+## 단일 에이전트와 멀티 에이전트의 차이
+- 단일 에이전트
+    - 에이전트의 통신 과정이 하나의 프로세스 내부에서 수행
+- 멀티 에이전트
+    - 다수의 독립 프로세스에서 별도의 http 요청, JSON payload를 사용 (단일은 모두 내부에서 처리)
