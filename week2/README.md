@@ -191,6 +191,52 @@ tcpdump 실행 -> restart agent_a -> ctrl+c로 캡처 중지
 <br />
 
 ## WireShark
+<img width="1440" height="850" alt="image" src="https://github.com/user-attachments/assets/a460db22-769b-4095-be0c-d36548da29a1" />
 
+아까 만들어진 pcap 파일을 업로드해 패킷을 살펴보면 위와 같다.
+캡쳐된 패킷들 중, HTTP payload는 총 네 개이다.
 
+<br />
 
+HTTP 패킷 내에서 JSON필드는 다음과 같다.
+<img width="720" height="425" alt="image" src="https://github.com/user-attachments/assets/72bf3495-8a31-490f-a3a4-24b3d3f90fb5" />
+<img width="720" height="425" alt="image" src="https://github.com/user-attachments/assets/1a52c64b-70d1-4a36-8c8a-ef13ea6513ce" />
+<img width="720" height="425" alt="image" src="https://github.com/user-attachments/assets/84998c21-814d-434a-9c20-5763a48dcd04" />
+<img width="720" height="425" alt="image" src="https://github.com/user-attachments/assets/5b1227dd-35e8-432f-89f0-c1ad682e4bfe" />
+
+IP를 보면, 172.20.0.2  /  172.20.0.3  /  172.20.0.4 로 3개가 등장하니 agent_a, agent_b, tool_server 인 것같다.
+통신은 A -> B -> ("read_file"이면)tool_server -> B -> A일 테니,
+172.20.0.4: agent_a
+172.20.0.2: agent_b
+172.20.0.3: tool_server
+일 것이다.
+
+### 패킷6
+- agent_a가 외부로부터 받아온 payload인 trace_id, stage, prompt가 JSOM Object의 Member(JSON 필드)로 들어가나 보다.
+- 그중 prompt는 PROMPT가 비어있어 default값인 "read file"로 전달됐다. (그럼 agent_b에서는 tool_server에게 파일을 읽을 것을 요청하겠다!!)
+
+<br />
+
+### 패킷14
+- 이 패킷은 agent_b가 tool_server에게 보내는 tool-call이다.
+- agent_a로부터 받은 payload인 req의 prompt 값에 "file"이라는 문자열이 있으니, if문에 들어가 가 썼던 코드대로 tool_request JSON이 전해졌다.
+- 형태는 ` stage: tool_call, tool: read_file, args.path: /data/hello.txt `
+
+<br />
+
+### 패킷18
+- tool_server가 HTTP 200 OK로 응답하는 패킷이다.
+- 이 패킷은 tool_server가 file의 메시지를 읽고 난 결과를 return해 agent_b에게 보내는 패킷이다. 내가 hello.txt에 써놨던 메시지가 그대로 드러난다!!
+
+<br />
+
+### 패킷25
+- agent_b가 agent_a에게 보내는 패킷이다.
+- agent_a는 (내가 그렇게 코딩해둠) hello.txt 내용은 못 받고, agent_b가 tool_server로부터 읽은 메시지를 전달 받았든, 못 받았든 "Echo: {req.prompt}" 즉 agent_a가 payload에 담았던 "read file"을 echo로 받는다.
+  
+(어... 지금 생각해보면 @app.post("/tool")로 받은 결과를 써야 하는 건..가?)
+
+<br />
+
+### 그 외
+- 패킷 6 -> 14 -> 18 -> 25의 trace_id모두 같은데, 이건 하나의 요청 흐름이 네트워크 상태에서 이어진 모습을 보여준다!
