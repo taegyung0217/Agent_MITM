@@ -31,7 +31,6 @@ def run_message(req: agentB_request_frame):
                 "stage": "tool_result",
                 "error": str(e),
             }
-
     else:
         return {
             "trace_id": req.trace_id,

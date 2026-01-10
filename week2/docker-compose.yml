@@ -14,8 +14,9 @@ services:
     container_name: agent_a
     depends_on:
       - agent_b
-      networks:
+    networks:
       - OutMessage_network
+      
   tool_server:
     build: ./tool_server
     container_name: tool_server
@@ -23,6 +24,8 @@ services:
       - "5000:5000"
     networks:
       - OutMessage_network
+    volumes:
+      - ./data:/data
 
 networks:
   OutMessage_network:

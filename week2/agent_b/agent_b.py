@@ -38,10 +38,15 @@ def run_message(req: Message_frame):
         else:
             raise RuntimeError("Tool Server에 연결할 수 없음")
 
-    else:
-        print("그냥 echo")
         return {
             "trace_id": req.trace_id,
-            "stage": req.stage,
-            "response": f"Echo: {req.prompt}",
+            "stage": "response",
+            "response": tool_result.get("result", str(tool_result)),
         }
+    
+    print("그냥 echo")
+    return {
+        "trace_id": req.trace_id,
+        "stage": "response",
+        "response": f"Echo: {req.prompt}",
+    }

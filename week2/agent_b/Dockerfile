@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y tcpdump
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi uvicorn
+RUN pip install --no-cache-dir fastapi uvicorn requests
 
 COPY agent_b.py .
 

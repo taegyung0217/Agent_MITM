@@ -12,11 +12,11 @@ def main():
     #이번 실행(또는 이번 요청)을 대표하는 고유한 ID 하나 만들기
     trace_id = str(uuid.uuid4())
 
-    # "prompt" 단계가 그대로 네트워크에 실리도록
+    # "prompt" 단계가 그대로 네트워크에 실리도록 (이번엔 PROMPT말고 다른 문자열로 대체)
     payload = {
         "trace_id": trace_id,
         "stage": "prompt",
-        "prompt": PROMPT,
+        "prompt": "this is not a reading request",
     }
     url = "http://agent_b:8000/hello"
 
