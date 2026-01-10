@@ -124,5 +124,7 @@ path = req.args.get("path", "")
 <br />
 
 ## 컨테이너 만들기
+
+### terminal1
 이제 만든 파일들을 바타으로 컨테이너를 만든다.
-docker-compose.yml 파일이 있는 (나는 week2 폴더) 위치에서 터미널을 열고 ` docker-compose up ` 실행행
+docker-compose.yml 파일이 있는 (나는 week2 폴더) 위치에서 터미널을 열고 ` docker compose up --build ` 실행
