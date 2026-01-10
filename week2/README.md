@@ -120,3 +120,9 @@ path = req.args.get("path", "")
 없으면 빈 문자열 ""을 쓸 거다.
 
 <img width="314" height="389" alt="image" src="https://github.com/user-attachments/assets/b9ca533a-f68a-4a08-94d0-3d830a951ff3" />
+
+<br />
+
+## 컨테이너 만들기
+이제 만든 파일들을 바타으로 컨테이너를 만든다.
+docker-compose.yml 파일이 있는 (나는 week2 폴더) 위치에서 터미널을 열고 ` docker-compose up ` 실행행
