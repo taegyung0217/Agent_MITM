@@ -1,37 +1,41 @@
 services:
-  agent_b:
-    build: ./agent_b
-    container_name: agent_b
-    ports:
-      - "8001:8001"
-    depends_on:
-      - tool_server
-    environment:  
-      - HTTP_PROXY=http://host.docker.internal:8080
-      - HTTPS_PROXY=http://host.docker.internal:8080
-      - PYTHONUNBUFFERED=1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
   tool_server:
     build: ./tool_server
-    container_name: tool_server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/data
+    networks:
+      - mitm_net
+
+  agent_b:
+    build: ./agent_b
     ports:
       - "8000:8000"
     environment:
       - HTTP_PROXY=http://host.docker.internal:8080
       - HTTPS_PROXY=http://host.docker.internal:8080
-    volumes:
-      - ./data:/data:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - tool_server
+    networks:
+      - mitm_net
 
   agent_a:
     build: ./agent_a
-    container_name: agent_a
-    depends_on:
-      - agent_b
+    ports:
+      - "8001:8001"
     environment:
-      - PROMPT=read a file
-      - HTTP_PROXY=http://host.docker.internal:8080  
+      - HTTP_PROXY=http://host.docker.internal:8080
       - HTTPS_PROXY=http://host.docker.internal:8080
-      - PYTHONUNBUFFERED=1
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - agent_b
+    networks:
+      - mitm_net
+
+networks:
+  mitm_net:
+    driver: bridge

@@ -1,8 +1,11 @@
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
-COPY agent_a.py /app/agent_a.py
 
-RUN pip install --no-cache-dir requests
+RUN pip install --no-cache-dir fastapi uvicorn requests
 
-CMD ["python", "agent_a.py"]
+COPY agent_a.py .
+
+EXPOSE 8001
+
+CMD ["uvicorn", "agent_a:app", "--host", "0.0.0.0", "--port", "8001"]

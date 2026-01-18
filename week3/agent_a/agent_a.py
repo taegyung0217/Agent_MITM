@@ -1,46 +1,52 @@
+# agent_a/agent_a.py
 import os
 import time
-import json
 import uuid
 import requests
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-AGENT_B_URL = os.getenv("AGENT_B_URL", "http://host.docker.internal:8001/agent")
-PROMPT = os.getenv("PROMPT", "read a file")
+app = FastAPI()
 
-# Burp Proxy 설정
-PROXIES = {
-    "http": os.getenv("HTTP_PROXY"),
-    "https": os.getenv("HTTPS_PROXY"),
-} if os.getenv("HTTP_PROXY") else None
+# agent_b는 컨테이너 DNS(agent_b:8000)로 가지 말고
+# host.docker.internal:8000 으로 가야 Burp가 "외부로 나가는 트래픽"으로 잡기 쉬움
+AGENT_B_URL = os.getenv("AGENT_B_URL", "http://host.docker.internal:8000/hello")
 
-def main():
-    trace_id = str(uuid.uuid4())
+DEFAULT_PROMPT = os.getenv("PROMPT", "read file")
 
-    # 1) "prompt" 단계가 그대로 네트워크에 실리도록 JSON에 담아 전송
+class AgentARequest(BaseModel):
+    trace_id: str | None = None
+    stage: str = "prompt"
+    prompt: str = DEFAULT_PROMPT
+
+@app.post("/agent")
+def agent(req: AgentARequest):
+    trace_id = req.trace_id or str(uuid.uuid4())
+
     payload = {
         "trace_id": trace_id,
         "stage": "prompt",
-        "prompt": PROMPT,
+        "prompt": req.prompt,
     }
 
-    print(f"[Agent A] Using proxy: {PROXIES}")
-
-    # Agent B 준비 대기(week1 스타일로 재시도)
+    # 프록시는 HTTP_PROXY/HTTPS_PROXY 환경변수로 자동 적용(requests 기본 trust_env=True)
     for i in range(30):
         try:
-            r = requests.post(AGENT_B_URL, json=payload, timeout=5, proxies=PROXIES)
-            r.raise_for_status()
-            break
-        except Exception as e:
-            print(f"[{i+1}/30] agent_b 준비 안 됨… 재시도 ({e})")
+            r = requests.post(AGENT_B_URL, json=payload, timeout=3)
+            return {
+                "trace_id": trace_id,
+                "stage": "agent_a_response",
+                "agent_b": r.json(),
+            }
+        except requests.exceptions.RequestException:
             time.sleep(1)
-    else:
-        raise RuntimeError("agent_b가 끝내 준비되지 않았음")
 
-    # 2) Agent B가 반환한 "tool-call / response"를 그대로 출력
-    resp = r.json()
-    print("\n===== Agent A received (from Agent B) =====")
-    print(json.dumps(resp, indent=2, ensure_ascii=False))
+    return {
+        "trace_id": trace_id,
+        "stage": "agent_a_response",
+        "error": "failed to reach agent_b",
+    }
 
-if __name__ == "__main__":
-    main()
+@app.get("/health")
+def health():
+    return {"status": "ok"}
