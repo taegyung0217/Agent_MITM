@@ -28,7 +28,7 @@ def main():
     # Agent B 준비 대기(week1 스타일로 재시도)
     for i in range(30):
         try:
-            r = requests.post(AGENT_B_URL, json=payload, timeout=2, proxies=PROXIES)
+            r = requests.post(AGENT_B_URL, json=payload, timeout=5, proxies=PROXIES)
             r.raise_for_status()
             break
         except Exception as e:

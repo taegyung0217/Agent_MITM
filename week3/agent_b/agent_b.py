@@ -62,7 +62,7 @@ def agent_endpoint(req: AgentRequest):
     print(f"[Agent B] With proxies: {PROXIES}", flush=True)
     
     try:
-        tool_resp = requests.post(TOOL_URL, json=tool_payload, timeout=3, proxies=PROXIES).json()
+        tool_resp = requests.post(TOOL_URL, json=tool_payload, timeout=5, proxies=PROXIES).json()
         print(f"[Agent B] Tool response received", flush=True)
     except Exception as e:
         print(f"[Agent B] ERROR calling tool_server: {e}", flush=True)
