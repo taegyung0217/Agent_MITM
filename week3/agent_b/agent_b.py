@@ -1,52 +1,64 @@
-# agent_b/agent_b.py
-from fastapi import FastAPI
-from pydantic import BaseModel
-import os
+from flask import Flask, request, jsonify
 import requests
-import time
+import os
 
-app = FastAPI()
+app = Flask(__name__)
 
-class Message_frame(BaseModel):
-    trace_id: str
-    stage: str
-    prompt: str
+TOOL_URL = os.getenv("TOOL_URL", "http://127.0.0.1:8001/tool")
 
-# tool_server도 컨테이너 DNS가 아니라 host 경유로(그래야 Burp history에 host.docker.internal:5000로 잡힘)
-TOOL_URL = os.getenv("TOOL_URL", "http://host.docker.internal:5000/tool")
+PROXIES = {
+    "http": "http://host.docker.internal:8080",
+    "https": "http://host.docker.internal:8080",
+}
 
-@app.post("/hello")
-def run_message(req: Message_frame):
-    if "file" in req.prompt:
-        tool_request = {
-            "trace_id": req.trace_id,
-            "stage": "tool_call",
-            "tool": "read_file",
-            "args": {"path": "/data/hello.txt"},
-        }
+@app.route("/agent", methods=["POST"])
+def handle():
+    data = request.get_json(force=True)
 
-        for i in range(30):
-            try:
-                response = requests.post(TOOL_URL, json=tool_request, timeout=3)
-                tool_result = response.json()
-                break
-            except requests.exceptions.RequestException:
-                time.sleep(1)
-        else:
-            return {"trace_id": req.trace_id, "stage": "response", "error": "Tool Server unreachable"}
+    print("\n[B] 받은 prompt:", data, flush=True)
 
-        return {
-            "trace_id": req.trace_id,
-            "stage": "response",
-            "response": tool_result.get("result", str(tool_result)),
-        }
+    prompt = (data.get("prompt") or "")
+    trace_id = data.get("trace_id", "no-trace")
 
-    return {
-        "trace_id": req.trace_id,
-        "stage": "response",
-        "response": f"Echo: {req.prompt}",
+    if "file" in prompt.lower():
+        tool_name = "read_file"
+        args = {"path": "/data/hello.txt"}
+    else:
+        tool_name = "echo"
+        args = {"text": prompt}
+
+    tool_call = {
+        "trace_id": trace_id,
+        "stage": "tool-call",
+        "tool": tool_name,
+        "args": args
     }
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+    print("[B] TOOL POST URL:", TOOL_URL, flush=True)
+    print("[B] 생성된 tool-call:", tool_call, flush=True)
+    print("[B] PROXIES:", PROXIES, flush=True)
+
+    r = requests.post(
+        TOOL_URL,
+        json=tool_call,
+        proxies=PROXIES,   # ✅ 항상 Burp 경유
+        timeout=30,
+    )
+
+    print("[B] Tool status:", r.status_code, flush=True)
+    print("[B] Tool content-type:", r.headers.get("Content-Type"), flush=True)
+    print("[B] Tool raw (first 200):", r.text[:200], flush=True)
+
+    tool_result = r.json()
+
+    response = {
+        "trace_id": trace_id,
+        "stage": "response",
+        "tool_result": tool_result
+    }
+
+    print("[B] 최종 response:", response, flush=True)
+    return jsonify(response)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)

@@ -1,60 +1,49 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import Any, Dict
+from flask import Flask, request, jsonify
+import os
 
-app = FastAPI()
+app = Flask(__name__)
 
-class ToolRequest(BaseModel):
-    trace_id: str
-    stage: str
-    tool: str
-    args: Dict[str, Any]
+@app.route("/tool", methods=["POST"])
+def tool():
+    data = request.json
 
-@app.post("/tool")
-def run_tool(req: ToolRequest):
-    # tool 서버는 '판단' 안 함: 요청대로만 실행 (과제용: 변조 확인에 최적)
-    if req.tool == "read_file":
-        path = str(req.args.get("path", ""))
+    print("\n[TOOL] 받은 요청:", data, flush=True)
+
+    trace_id = data.get("trace_id", "no-trace")
+    tool = data.get("tool")
+    args = data.get("args", {})
+
+    if tool == "read_file":
+        path = args.get("path", "/data/hello.txt")
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read()
-            return {
-                "trace_id": req.trace_id,
-                "stage": "tool-response",
-                "status": "ok",
-                "tool": req.tool,
-                "args": req.args,
-                "result": {"content": content},
-            }
+            with open(path, "r", encoding="utf-8") as f:
+                result = f.read()
         except Exception as e:
-            return {
-                "trace_id": req.trace_id,
-                "stage": "tool-response",
-                "status": "error",
-                "tool": req.tool,
-                "args": req.args,
-                "error": str(e),
-            }
+            return jsonify({
+                "trace_id": trace_id,
+                "tool": tool,
+                "error": str(e)
+            }), 500
 
-    if req.tool == "echo":
-        return {
-            "trace_id": req.trace_id,
-            "stage": "tool-response",
-            "status": "ok",
-            "tool": req.tool,
-            "args": req.args,
-            "result": {"content": str(req.args.get("message", ""))},
-        }
+    elif tool == "echo":
+        result = args.get("text", "")
 
-    return {
-        "trace_id": req.trace_id,
-        "stage": "tool-response",
-        "status": "error",
-        "tool": req.tool,
-        "args": req.args,
-        "error": "unknown tool",
+    else:
+        return jsonify({
+            "trace_id": trace_id,
+            "tool": tool,
+            "error": "unknown tool"
+        }), 400
+
+    response = {
+        "trace_id": trace_id,
+        "tool": tool,
+        "result": result
     }
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+    print("[TOOL] 반환:", response, flush=True)
+
+    return jsonify(response)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8001)

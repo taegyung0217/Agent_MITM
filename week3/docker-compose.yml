@@ -1,41 +1,33 @@
 services:
-  tool_server:
-    build: ./tool_server
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./data:/data
-    networks:
-      - mitm_net
+  agent-a:
+    build: ./agent_a
+    depends_on:
+      - agent-b
+    environment:
+      AGENT_B_URL: "http://127.0.0.1:8000/agent"
+      HTTP_PROXY: "http://host.docker.internal:8080"
+      HTTPS_PROXY: "http://host.docker.internal:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  agent_b:
+  agent-b:
     build: ./agent_b
     ports:
       - "8000:8000"
+    depends_on:
+      - tool-server
     environment:
-      - HTTP_PROXY=http://host.docker.internal:8080
-      - HTTPS_PROXY=http://host.docker.internal:8080
+      TOOL_URL: "http://127.0.0.1:8001/tool"
+      HTTP_PROXY: "http://host.docker.internal:8080"
+      HTTPS_PROXY: "http://host.docker.internal:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - tool_server
-    networks:
-      - mitm_net
 
-  agent_a:
-    build: ./agent_a
+  tool-server:
+    build: ./tool_server
     ports:
       - "8001:8001"
-    environment:
-      - HTTP_PROXY=http://host.docker.internal:8080
-      - HTTPS_PROXY=http://host.docker.internal:8080
+    volumes:
+      - ./data:/data:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - agent_b
-    networks:
-      - mitm_net
-
-networks:
-  mitm_net:
-    driver: bridge

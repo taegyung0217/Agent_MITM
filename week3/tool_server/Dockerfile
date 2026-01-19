@@ -1,11 +1,7 @@
-FROM python:3.11-slim
-
+FROM python:3.12-slim
 WORKDIR /app
-
-RUN pip install --no-cache-dir fastapi uvicorn
-
+RUN apt-get update && apt-get install -y tcpdump && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir flask requests
 COPY tool_server.py .
-
-EXPOSE 5000
-
-CMD ["uvicorn", "tool_server:app", "--host", "0.0.0.0", "--port", "5000"]
+EXPOSE 8001
+CMD ["python", "tool_server.py"]

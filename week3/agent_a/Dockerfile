@@ -1,11 +1,6 @@
-FROM python:3.11-slim
-
+FROM python:3.12-slim
 WORKDIR /app
-
-RUN pip install --no-cache-dir fastapi uvicorn requests
-
+RUN apt-get update && apt-get install -y tcpdump && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir requests
 COPY agent_a.py .
-
-EXPOSE 8001
-
-CMD ["uvicorn", "agent_a:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["python", "agent_a.py"]

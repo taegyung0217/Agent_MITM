@@ -1,52 +1,52 @@
-# agent_a/agent_a.py
 import os
 import time
 import uuid
 import requests
-from fastapi import FastAPI
-from pydantic import BaseModel
+import urllib3
 
-app = FastAPI()
+# 과제 설명과 동일
+PROMPT = os.getenv("PROMPT", "read_file")
+AGENT_B_URL = os.getenv("AGENT_B_URL", "http://127.0.0.1:8000/agent")
 
-# agent_b는 컨테이너 DNS(agent_b:8000)로 가지 말고
-# host.docker.internal:8000 으로 가야 Burp가 "외부로 나가는 트래픽"으로 잡기 쉬움
-AGENT_B_URL = os.getenv("AGENT_B_URL", "http://host.docker.internal:8000/hello")
+# 프록시 설정 (외부 통신용)
+PROXIES = {
+    "http": "http://host.docker.internal:8080",
+    "https": "http://host.docker.internal:8080",
+}
 
-DEFAULT_PROMPT = os.getenv("PROMPT", "read file")
-
-class AgentARequest(BaseModel):
-    trace_id: str | None = None
-    stage: str = "prompt"
-    prompt: str = DEFAULT_PROMPT
-
-@app.post("/agent")
-def agent(req: AgentARequest):
-    trace_id = req.trace_id or str(uuid.uuid4())
+def main():
+    # agent-b 서버가 준비될 때까지 대기
+    time.sleep(3)
+    
+    trace_id = str(uuid.uuid4())
 
     payload = {
         "trace_id": trace_id,
         "stage": "prompt",
-        "prompt": req.prompt,
+        "prompt": PROMPT,
     }
 
-    # 프록시는 HTTP_PROXY/HTTPS_PROXY 환경변수로 자동 적용(requests 기본 trust_env=True)
-    for i in range(30):
-        try:
-            r = requests.post(AGENT_B_URL, json=payload, timeout=3)
-            return {
-                "trace_id": trace_id,
-                "stage": "agent_a_response",
-                "agent_b": r.json(),
-            }
-        except requests.exceptions.RequestException:
-            time.sleep(1)
+    print("[A] POST URL:", AGENT_B_URL, flush=True)
+    print("[A] PROXIES:", PROXIES, flush=True)
+    print("[A] payload:", payload, flush=True)
 
-    return {
-        "trace_id": trace_id,
-        "stage": "agent_a_response",
-        "error": "failed to reach agent_b",
-    }
+    r = requests.post(
+        AGENT_B_URL,
+        json=payload,
+        proxies=PROXIES,
+        timeout=30,
+    )
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+    print("[A] status:", r.status_code, flush=True)
+    print("[A] content-type:", r.headers.get("Content-Type"), flush=True)
+    print("[A] raw (first 300):", r.text[:300], flush=True)
+
+    ct = r.headers.get("Content-Type", "") or ""
+    if "application/json" in ct:
+        print("[A] json:", r.json(), flush=True)
+    else:
+        print("[A] NOT JSON. (Burp/Upstream 설정 확인)", flush=True)
+
+
+if __name__ == "__main__":
+    main()
