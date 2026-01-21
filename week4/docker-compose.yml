@@ -1,0 +1,39 @@
+services:
+  agent-a:
+    build: ./agent_a
+    depends_on:
+      - agent-b
+    environment:
+      USE_PROXY: "false"
+      AGENT_B_URL: "https://agent-b:8443/agent"
+      REQUESTS_CA_BUNDLE: "/certs/lab-ca.crt"
+      # AGENT_B_URL: "http://127.0.0.1:8000/agent"
+      # HTTP_PROXY: "http://host.docker.internal:8080"
+      # HTTPS_PROXY: "http://host.docker.internal:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  agent-b:
+    build: ./agent_b
+    ports:
+      - "8000:8000"
+    depends_on:
+      - tool-server
+    environment:
+      USE_PROXY: "false"
+      REQUESTS_CA_BUNDLE: "/certs/lab-ca.crt"
+      TOOL_URL: "https://tool-server:9443/tool"
+      # TOOL_URL: "http://127.0.0.1:8001/tool"
+      # HTTP_PROXY: "http://host.docker.internal:8080"
+      # HTTPS_PROXY: "http://host.docker.internal:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  tool-server:
+    build: ./tool_server
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/data:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
