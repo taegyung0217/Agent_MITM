@@ -5,7 +5,7 @@ services:
       - agent-b
     environment:
       USE_PROXY: "false"
-      AGENT_B_URL: "https://agent-b:8443/agent"
+      AGENT_B_URL: "https://agent-b:8000/agent"
       REQUESTS_CA_BUNDLE: "/certs/lab-ca.crt"
       # AGENT_B_URL: "http://127.0.0.1:8000/agent"
       # HTTP_PROXY: "http://host.docker.internal:8080"
@@ -20,9 +20,9 @@ services:
     depends_on:
       - tool-server
     environment:
-      USE_PROXY: "false"
+      USE_PROXY: "ture"
       REQUESTS_CA_BUNDLE: "/certs/lab-ca.crt"
-      TOOL_URL: "https://tool-server:9443/tool"
+      TOOL_URL: "https://tool-server:8001/tool"
       # TOOL_URL: "http://127.0.0.1:8001/tool"
       # HTTP_PROXY: "http://host.docker.internal:8080"
       # HTTPS_PROXY: "http://host.docker.internal:8080"
