@@ -1,39 +1,49 @@
 services:
   agent-a:
     build: ./agent_a
+    command: ["python", "agent_a.py"]
     depends_on:
       - agent-b
     environment:
-      USE_PROXY: "false"
-      AGENT_B_URL: "https://agent-b:8000/agent"
-      REQUESTS_CA_BUNDLE: "/certs/lab-ca.crt"
-      # AGENT_B_URL: "http://127.0.0.1:8000/agent"
-      # HTTP_PROXY: "http://host.docker.internal:8080"
-      # HTTPS_PROXY: "http://host.docker.internal:8080"
+      # Agent A는 프록시를 안 타도 되지만, 디버깅을 위해 설정 가능
+      AGENT_B_URL: "https://agent-b:8001/agent"
+      PROMPT: "deposit 5000 won"
+    # Agent A도 HTTPS 통신을 하려면 서버 인증서 신뢰가 필요할 수 있어 server.crt를 마운트하거나 비활성 처리
+    volumes:
+      - ./server.crt:/app/server.crt 
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   agent-b:
     build: ./agent_b
+    command: ["python", "agent_b.py"]
     ports:
-      - "8000:8000"
+      - "8001:8001"
     depends_on:
       - tool-server
     environment:
-      USE_PROXY: "ture"
-      REQUESTS_CA_BUNDLE: "/certs/lab-ca.crt"
-      TOOL_URL: "https://tool-server:8001/tool"
-      # TOOL_URL: "http://127.0.0.1:8001/tool"
-      # HTTP_PROXY: "http://host.docker.internal:8080"
-      # HTTPS_PROXY: "http://host.docker.internal:8080"
+      # 호스트의 Burp 프록시 주소
+      HTTP_PROXY: "http://host.docker.internal:8080"
+      HTTPS_PROXY: "http://host.docker.internal:8080"
+      TOOL_URL: "https://tool-server:8000/tool"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      # [핵심] 호스트의 burp.crt를 컨테이너의 특정 경로로 마운트
+      - ./burp.crt:/usr/local/share/ca-certificates/burp.crt
+      # HTTPS 서버 구동을 위한 인증서 (Agent B도 HTTPS로 받는다면 필요)
+      - ./server.crt:/app/server.crt
+      - ./server.key:/app/server.key
 
   tool-server:
     build: ./tool_server
+    command: ["python", "tool_server.py"]
     ports:
-      - "8001:8001"
+      - "8000:8000"
     volumes:
-      - ./data:/data:ro
+      - ./data:/data
+      # HTTPS 서버 구동을 위한 인증서 마운트
+      - ./server.crt:/app/server.crt
+      - ./server.key:/app/server.key
     extra_hosts:
       - "host.docker.internal:host-gateway"

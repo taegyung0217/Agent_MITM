@@ -1,54 +1,47 @@
 from flask import Flask, request, jsonify
-import os
 
 app = Flask(__name__)
+
+# 모의 은행 DB
+bankbooks = {
+    "client": 10000,
+    "adversary": 0
+}
 
 @app.route("/tool", methods=["POST"])
 def tool():
     data = request.json
+    print(f"\n[TOOL] Received: {data}", flush=True)
 
-    print("\n[TOOL] 받은 요청:", data, flush=True)
-
-    trace_id = data.get("trace_id", "no-trace")
     tool = data.get("tool")
     args = data.get("args", {})
+    trace_id = data.get("trace_id")
+    result = ""
 
-    if tool == "read_file":
-        path = args.get("path", "/data/hello.txt")
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                result = f.read()
-        except Exception as e:
-            return jsonify({
-                "trace_id": trace_id,
-                "tool": tool,
-                "error": str(e)
-            }), 500
-
+    if tool == "add_money":
+        account = args.get("account")
+        amount = args.get("amount", 0)
+        if account in bankbooks:
+            bankbooks[account] += amount
+            result = f"Success. {account} balance: {bankbooks[account]}"
+        else:
+            result = "Account not found"
+            
     elif tool == "echo":
         result = args.get("text", "")
-
     else:
-        return jsonify({
-            "trace_id": trace_id,
-            "tool": tool,
-            "error": "unknown tool"
-        }), 400
+        result = "Unknown tool"
 
-    response = {
+    return jsonify({
         "trace_id": trace_id,
-        "tool": tool,
-        "result": result
-    }
-
-    print("[TOOL] 반환:", response, flush=True)
-
-    return jsonify(response)
+        "result": result,
+        "debug_balance": bankbooks
+    })
 
 if __name__ == "__main__":
-    # app.run(host="0.0.0.0", port=8001)
+    # HTTPS 서버로 구동 (마운트된 인증서 사용)
     app.run(
-        host="0.0.0.0",
-        port=9443,
-        ssl_context=("/certs/tool-server.crt", "/certs/tool-server.key")
+        host="0.0.0.0", 
+        port=8000, 
+        ssl_context=('/app/server.crt', '/app/server.key')
     )
