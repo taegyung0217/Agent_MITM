@@ -30,7 +30,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       # [핵심] 호스트의 burp.crt를 컨테이너의 특정 경로로 마운트
-      - ./burp.crt:/usr/local/share/ca-certificates/burp.crt
+      - ./burp.crt.cer:/usr/local/share/ca-certificates/burp.crt
       # HTTPS 서버 구동을 위한 인증서 (Agent B도 HTTPS로 받는다면 필요)
       - ./server.crt:/app/server.crt
       - ./server.key:/app/server.key
