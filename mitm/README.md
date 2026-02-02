@@ -490,8 +490,93 @@ ls명령어로 확인한 CA 인증서의 파일명이 burp.crt.cer임을 확인�
 
 클라이언트의 요청에 오류 없이 adversary의 bankbook에 9999원이 추가된 것을 확인할 수 있다.
 
+<br />
+
+### UI 추가하기
+단순히 도커를 실행하여 남는 HTTPS 통신 트래픽을 분석하는 것을 넘어 입출금 요청에 클라이언트의 개입을 추가하였다.
+agent_a.py에 Flask()로 포트 8002로 열리는 웹페이지에 간단한 입출금 UI를 추가해 사용자가 입력한 금액에 따라 입출금이 가능해진다.
+
+<img src="images/9.png" alt="alt text" width="386" height="181">
 
 
+이때 Burp의 intercept on을 유지한 상태라면 패킷을 보내지 않고 붙잡고 있기 때문에 ` timeout(30) `제한으로 페이지가 다운될 수 있다는 것을 주의해야 한다.
+
+<br />
+
+따라서 Intercept를 끄거나, agent_a.py의 time.sleep(5) 제거, 혹은 타임아웃 시간을 연장하는 등의 방법을 사용할 수 있다.
+
+<br />
+
+# 공격 방어
+## 채택한 방어 기법
+전송할 데이터를 agent_b와 tool_server 사이에 생성된 비밀키로 계산한 서명을 함께 전송한다.
+
+tool_server는 받은 데이터의 해시값과 agent_b의 서명을 비교해 일치한 경우에만 입출금 요청을 반영해 공격자가 요청을 변경하는 공격에 방어할 수 있다.
+
+### ` agent_a.py ` 수정
+서명 생성 로직을 추가한다.
+
+## 방어 실행
+### 정상적인 입금
+<img src="images/10.png" alt="alt text" width="845" height="157">
+<img src="images/11.png" alt="alt text" width="864" height="508">
+
+7000원을 입금하면 ` result `에서 Success라는 문자와 함께, client의 bankbook에 총 17000원이 보관되어있는 것을 확인할 수 있다.
+(10000원이 기본적으로 들어있는 금액, 입력칸의 5000은 디폴트 텍스트)
+
+<br />
+
+### 중간자 공격 실행
+<img src="images/12.png" alt="alt text" width="352" height="188">
+
+333원을 입금하는 요청을 intercept하여 계좌명` account `를 ` client `에서 ` adversary `로 변겨애 ` Forward `한다.
+(이때 패킷을 전송하지 않고 intercept하고 있기 때문에 지정해둔 timeout인 180초를 넘기지 않도록 주의한다.)
+
+<br />
+
+<img src="images/13.png" alt="alt text" width="864" height="134">
+
+` Forward `한 결과, Error: Integrity check failed라는 문자와 함께, client의 bankbook에는 333원 입금 요청이 적용되지 않아 여전히 17000원이 보관되어있음을 확인할 수 있다.
+
+<br />
+
+<img src="images/14.png" alt="alt text" width="864" height="388">
+
+또한 adversary의 bankbook에도 333원은 입금되지 않는다.
 
 
+## 방어 시나리오
+    participant User as 👤 사용자 (Browser)
+    participant Agent_A as 🏠 Agent A (Web UI)
+    participant Agent_B as 🤖 Agent B (Signer)
+    participant Burp as 🕵️ Burp Suite (Proxy)
+    participant Tool as 🏦 Tool Server (Verifier)
 
+    Agent_B, Tool의 공유 비밀키 (Shared Secret): "my_bank_secret"
+
+    User->>Agent_A: "10,000원 입금"
+
+    Agent_A->>Agent_B: 요청의 무결성에 대한 분석 및 시행 요청
+
+    Agent_B:
+        1. Tool Call 생성: {amount: 10000}
+        2. HMAC 서명 생성: "a1b2c3..." (비밀키 "my_bank_secret" 이용)
+
+    Agent_B->>Burp: [데이터: 10,000원] + [서명: a1b2c3...] 전송
+    
+     ==========================================
+    | Note over Burp: 공격자가 패킷을 Intercept |
+    | 계좌명 account를 [adversary]로 변조       |
+     ==========================================
+
+    Burp->>Tool: [데이터: 1,000,000원] + [서명: a1b2c3...] 전송
+
+    Tool: Burp의 서명과, 받은 데이터
+        1. 비밀키로 계산한 서명(="z9y8x7...")을 대조해 검증
+        2. 받은 서명(a1b2c3) != 계산한 서명(z9y8x7)이므로 데이터가 변조되었음을 확인하고 요청을 수행하지 않음
+
+    Tool-->>Agent_B: 403 Forbidden (Integrity Check Failed) 전송
+
+    Agent_B-->>Agent_A: 에러 메시지 전달
+
+    Agent_A-->>User: "데이터 변조가 감지되어 요청이 차단되었습니다."을 확인
