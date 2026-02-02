@@ -1,13 +1,15 @@
 services:
   agent-a:
     build: ./agent_a
+    ports:
+      - "8002:8002"  # 추가: 크롬에서 localhost:8002로 접속 가능하게 함
     command: ["python", "agent_a.py"]
     depends_on:
       - agent-b
     environment:
       # Agent A는 프록시를 안 타도 되지만, 디버깅을 위해 설정 가능
       AGENT_B_URL: "https://agent-b:8001/agent"
-      PROMPT: "deposit 5000 won"
+      # PROMPT: "deposit 5000 won"
     # Agent A도 HTTPS 통신을 하려면 서버 인증서 신뢰가 필요할 수 있어 server.crt를 마운트하거나 비활성 처리
     volumes:
       - ./server.crt:/app/server.crt 

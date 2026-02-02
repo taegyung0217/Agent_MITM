@@ -1,8 +1,15 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+import hmac
+import hashlib
+import json
+
 
 app = Flask(__name__)
+
+# binary로 공유 비밀키 설정 (실제 환경에서는 환경변수나 안전한 곳에 보관)
+SHARED_SECRET = b"my_bank_secret_key"
 
 # 환경변수에서 가져오거나 기본값 설정
 TOOL_URL = os.getenv("TOOL_URL", "https://tool-server:8000/tool")
@@ -31,9 +38,11 @@ def handle():
         # 숫자만 추출 (예: "5000 won" -> 5000)
         amount = int(''.join(filter(str.isdigit, prompt)) or 0)
         args = {"account": "client", "amount": amount}
-    elif "file" in prompt:
-        tool_name = "read_file"
-        args = {"path": "/data/hello.txt"}
+    elif "withdraw" in prompt:
+        tool_name = "subtract_money"
+        amount = int(''.join(filter(str.isdigit, prompt)) or 0)
+        args = {"account": "client", "amount": amount}
+        # args = {"path": "/data/hello.txt"}
     else:
         tool_name = "echo"
         args = {"text": prompt}
@@ -44,16 +53,28 @@ def handle():
         "args": args
     }
 
-    print(f"[B] Sending to Tool Server (HTTPS via Burp): {TOOL_URL}", flush=True)
+    # print(f"[B] Sending to Tool Server (HTTPS via Burp): {TOOL_URL}", flush=True)
+    
+    
+    # 2.5 HMAC 서명 생성
+    # 데이터를 문자열로 변환 (순서 보장을 위해 sort_keys 사용)
+    payload_str = json.dumps(tool_call, sort_keys=True)
+    signature = hmac.new(SHARED_SECRET, payload_str.encode(), hashlib.sha256).hexdigest()
 
-    # 3. Tool Server로 요청 (Burp Proxy 경유 + 인증서 검증)
+    print(f"[B] Generated Signature: {signature}", flush=True)
+
+
+    # 3. Tool Server로 요청 (Burp Proxy 경유 + 인증서 검증) +@(헤더에 서명 추가)
     try:
+        headers = {"X-Signature": signature} # 서명을 헤더에 담기
+        
         r = requests.post(
             TOOL_URL,
             json=tool_call,
+            headers=headers,
             proxies=PROXIES,  # 프록시 태우기
             verify=BURP_CERT_PATH,  # 마운트한 Burp 인증서로 검증
-            timeout=30
+            timeout=180
         )
         tool_result = r.json()
     except Exception as e:
