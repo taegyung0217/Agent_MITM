@@ -1,38 +1,11 @@
-# Burp CA 동작 방식
- HTTPS는 TLS를 통해 암호화되지만 그 보안성은 어떤 CA를 신뢰하는지에 따라 결정된다. Burp Suite는 자체적인 Root CA 인증서를 제공한다. Client(agent_b)가 해당 CA를 신뢰하면 TLS 연결이 Client ↔ Burp, Burp ↔ Server 두 개의 독립적인 세션으로 정상 수립된다.   결과적으로 Burp가 신뢰된 TLS 종단점(endpoint)이 되면서 HTTPS 통신을 중간에서 복호화 및 변조하는 것이 가능해진다.
-
-## Burp CA 인증서 설치
-1. Proxy Settings에서 인증서 추출
-    - Certificate in DER format을 선택한다.
-    - 확장자는 .der로 설정한다.
-2. Windows에 Burp 인증서 설치
-
-    <img src="images/1.png" alt="alt text" width="231" height="291">
-
-    - 설치한 인증서를 더블 클릭해 _로컬 컴퓨터 -> 모든 인증서를 다음 저장소에 저장 -> 신뢰할 수 있는 루트 인증 기관_ 으로 지정한다.
-3. HTTPS 통신의 SSL/TLS 복호화 성공 여부 확인
-
-    <img src="images/2.png" alt="alt text" width="720" height="422">
-
-    - Host의 URL =  ` https://www.google.com `
-    - Request탭의 내용이 평문으로 보임
-    - Status Code = 200
-    
-    => 복호화 확인
-
-<br />
-
-### HTTPS 통신의 복호화가 가능한 이유
-1. 클라이언트(=브라우저)가 서버(=구글)에게 보낸 요청을 Burp가 가로챈다.
-2. 이때 사전에 '신뢰할 수 있는 루트 인증 기관'에 등록해둔 CA 인증서를 통해 Burp가 서버의 신분으로서 동작할 수 있게 된다. 클라이언트는 Burp Proxy를 서버로 오해한 채 Burp와 암호화 통신을 하기 때문에 복호화한 평문을 볼 수 있다.
-3. Burp가 가로챈 클라이언트의 요청을 확인한 후 다시 암호화하여 실제 서버에게 전송함으로써 MITM 공격이 가능해진다.
-
-<br />
-
 # Ⅰ. 프로젝트 개요
-본 프로젝트는 멀티 에이전트 간 HTTPS 통신 환경에서 MITM(Man-in-the-Middle) 공격이 실제로 어떤 위협을 만들 수 있는지를 도커로 구성한 가상 환경을 통해 확인하고, 이에 대한 현실적인 방어 전략을 도출하는 것을 목표로 한다.
+본 프로젝트는 멀티 에이전트 간 HTTPS 통신 환경에서 MITM 공격이 실제로 어떤 위협을 만들 수 있는지를 도커로 구성한 가상 환경을 통해 확인하고, 이에 대한 현실적인 방어 전략을 도출하는 것을 목표로 한다.
 
 사용할 공격 유형은 ‘Tool-call Validation 부재‘이다. 다음과 같이 세 개의 컴포넌트(agent_a, agent_b, tool_server)로 구성된 네트워트 환경에서 HTTPS 통신을 진행한다.
+
+<br />
+
+## 각 컴포넌트의 역할
 ```
 [ agent_a (Client) ]
         |
@@ -44,10 +17,6 @@
         v
 [ Tool Server (Bankbook System) ]
 ```
-
-<br />
-
-## 각 컴포넌트의 역할
 ### 1. agent_a
 - 사용자 또는 외부 요청을 대표하는 에이전트
 - “deposit 5000 won”, “withdraw 10000 won”과 같은 입금과 출금 요청을 agent_b에게 전달
@@ -56,8 +25,8 @@
 ### 2. agent_b
 - agent_a에게 받은 요청을 실제 실행 가능한 tool-call로 변환
 - 요청 종류에 따라 다음 중 하나의 계좌를 대상으로 동작:
-	- client bankbook: 출금 (withdraw) 요청일 시 지정한 금액만큼 계좌에 들어있는 금액을 제함
-	- adversary bankbook : 입금 (deposit) 요청일 시 지정한 금액만큼 계좌에 들어있는 금액을 더함
+	- client bankbook
+	- adversary bankbook
 - tool_server에 HTTPS 요청 전송
 - tool_server의 응답을 그대로 agent_a에게 전달
 
@@ -94,7 +63,7 @@
 
 # Ⅱ.2 공격 흐름 (MITM 개입)
 ## Ⅱ.2.1. 공격 전제
-agent_b가 Burp CA를 신뢰하도록 설정해 agent_b가 tool_server에게 요청을 전달할 때 Burp 프록시를 경유한다. 이때 HTTPS는 유지되지만 애플리케이션 계층의 payload는 변조할 수 있음을 활용한다.
+agent_b가 Burp CA를 신뢰하도록 설정하고 agent_b는 tool_server에게 요청을 전달할 때 Burp 프록시를 경유한다. 이때 HTTPS는 유지되지만 애플리케이션 계층의 payload는 변조할 수 있음을 활용한다.
 
 ## Ⅱ.2.2. 공격 단계
 ### 1. agent_a -> agent_b
@@ -403,7 +372,40 @@ services:
 ```
 <br />
 
-## Ⅲ.6 Hostname Resolution 설정
+## Ⅲ.6 Burp CA 동작 방식
+ HTTPS는 TLS를 통해 암호화되지만 그 보안성은 어떤 CA를 신뢰하는지에 따라 결정된다. Burp Suite는 자체적인 Root CA 인증서를 제공한다. Client(agent_b)가 해당 CA를 신뢰하면 TLS 연결이 Client ↔ Burp, Burp ↔ Server 두 개의 독립적인 세션으로 정상 수립된다.   결과적으로 Burp가 신뢰된 TLS 종단점(endpoint)이 되면서 HTTPS 통신을 중간에서 복호화 및 변조하는 것이 가능해진다.
+
+### Burp CA 인증서 설치
+1. Proxy Settings에서 인증서 추출
+    - Certificate in DER format을 선택한다.
+    - 확장자는 .der로 설정한다.
+2. Windows에 Burp 인증서 설치
+
+    <img src="images/1.png" alt="alt text" width="231" height="291">
+
+    - 설치한 인증서를 더블 클릭해 _로컬 컴퓨터 -> 모든 인증서를 다음 저장소에 저장 -> 신뢰할 수 있는 루트 인증 기관_ 으로 지정한다.
+3. HTTPS 통신의 SSL/TLS 복호화 성공 여부 확인
+
+    <img src="images/2.png" alt="alt text" width="720" height="422">
+
+    - Host의 URL =  ` https://www.google.com `
+    - Request탭의 내용이 평문으로 보임
+    - Status Code = 200
+    
+    => 복호화 확인
+
+<br />
+
+### HTTPS 통신의 복호화가 가능한 이유
+1. 클라이언트(=브라우저)가 서버(=구글)에게 보낸 요청을 Burp가 가로챈다.
+2. 이때 사전에 '신뢰할 수 있는 루트 인증 기관'에 등록해둔 CA 인증서를 통해 Burp가 서버의 신분으로서 동작할 수 있게 된다. 클라이언트는 Burp Proxy를 서버로 오해한 채 Burp와 암호화 통신을 하기 때문에 복호화한 평문을 볼 수 있다.
+3. Burp가 가로챈 클라이언트의 요청을 확인한 후 다시 암호화하여 실제 서버에게 전송함으로써 MITM 공격이 가능해진다.
+
+<br />
+
+
+
+## Ⅲ.7 Hostname Resolution 설정
 1. 도커 내부
 - agent_b가 _https://tool-server:8000_ 에게 요청을 전송
 - 도커 내부에서는 tool-server를 서로 알고 있음
@@ -413,7 +415,7 @@ services:
 
 => 따라서 Burp가 모르는 주소(tool-server)를 전달받으면 127.0.0.1(내 PC)로 연결하도록 설정해야함
 
-=> <img src="images/3.png" alt="alt text" width="915" height="322">
+=> <img src="images/3.png" alt="alt text" width="457" height="161">
 
 Network -> DNS -> Hostname Resolution 표에서 ` tool-server -> 127.0.0.1 `,
 ` agent-b -> 127.0.0.1 `를 추가
@@ -421,36 +423,32 @@ Network -> DNS -> Hostname Resolution 표에서 ` tool-server -> 127.0.0.1 `,
 <br />
 
 ### 빌드
-이 상태로 빌드하니 (github 26.01.28. 업로드)
 <img src="images/4.png" alt="alt text" width="1008" height="484">
 
-이 상태로 빌드하니 (github 26.01.28. 업로드) agent-a에서 agent-b까지는 요청이 잘 도착(deposit 5000 won 수신)지만,
+이 상태로 빌드하면 (github 26.01.28. 업로드) agent-a에서 agent-b까지는 요청이 잘 도착(deposit 5000 won 수신)지만 agent-b가 tool-server로 요청을 보낼 때 SSL 에러가 발생한다.
 
-agent-b가 tool-server로 요청을 보낼 때 SSL 에러가 발생한다.
-
-따라서 Burp에도 기록이 남지 않는다.
+따라서 Burp에도 트래픽 기록이 남지 않는다.
 
 <br />
 
 ### 오류 원인 분석
-- 로그 중 ` [X509: NO_CERTIFICATE_OR_CRL_FOUND] no certificate or crl found ` => Burp인증서 파일의 포맷(Format)이 Python이 읽을 수 없는 형태(DER)이기 때문일 확률이 높다.
-- 새로 연 터미널로 본 현재 디렉토리의 파일과 폴더 목록에서 burp.crt의 파일명이 명확한지 확인해야 한다.
-
-burp.crt파일을 메모장으로 열었을 때 깨진 글자가 보이면 DER 확장자로, 잘못된 형식이다.
+1. 로그 ` [X509: NO_CERTIFICATE_OR_CRL_FOUND] no certificate or crl found `: Burp인증서 파일의 포맷(Format)이 Python이 읽을 수 없는 형태(DER)이기 때문일 확률이 높다.
+2. 새로 연 터미널로 본 현재 디렉토리의 파일과 폴더 목록에서 burp.crt의 파일명이 명확한지 확인해야 한다.
+    - burp.crt파일을 메모장으로 열었을 때 깨진 글자가 보이면 DER 확장자로, 잘못된 형식이다.
 
 <br />
 
-#### 윈도우 마법사로 포맷 변환하기 
+#### 1. 윈도우 마법사로 포맷 변환하기 
 1. der 확장자의 파일을 더블클릭 -> 인증서 정보 창에서 자세히(Details) 탭으로 이동
 
 2. 파일에 복사(Copy to File) -> 다음(Next)
 
 3. "Base-64 encoded X.509 (.CER)" 포맷(=PEM) 선택
 
-4. ` burp.crt `를 메모장으로 열었을 때 ` -----BEGIN CERTIFICATE----- `로 시작한다면 완료
+4. ` burp.crt `를 메모장으로 열었을 때 ` -----BEGIN CERTIFICATE----- `로 시작한다면 확장자 변환 완료
 
-#### 파일명 확인
-ls명령어로 확인한 CA 인증서의 파일명이 burp.crt.cer임을 확인했다. 따라서 yml 파일의 인증서 경로를 ` ./burp.crt.cer:/usr/local/share/ca-certificates/burp.crt `로 수정해주었다.
+#### 2. 파일명 확인
+` ls `명령어로 확인한 CA 인증서의 파일명이 burp.crt.cer임을 확인했다. 따라서 yml 파일의 인증서 경로를 ` ./burp.crt.cer:/usr/local/share/ca-certificates/burp.crt `로 수정해주었다.
 
 <br />
 
@@ -501,14 +499,12 @@ agent_a.py에 Flask()로 포트 8002로 열리는 웹페이지에 간단한 입�
 
 이때 Burp의 intercept on을 유지한 상태라면 패킷을 보내지 않고 붙잡고 있기 때문에 ` timeout(30) `제한으로 페이지가 다운될 수 있다는 것을 주의해야 한다.
 
-<br />
-
 따라서 Intercept를 끄거나, agent_a.py의 time.sleep(5) 제거, 혹은 타임아웃 시간을 연장하는 등의 방법을 사용할 수 있다.
 
 <br />
 
-# 공격 방어
-## 채택한 방어 기법
+# Ⅵ. 공격 방어
+## Ⅵ.1 채택한 방어 기법
 전송할 데이터를 agent_b와 tool_server 사이에 생성된 비밀키로 계산한 서명을 함께 전송한다.
 
 tool_server는 받은 데이터의 해시값과 agent_b의 서명을 비교해 일치한 경우에만 입출금 요청을 반영해 공격자가 요청을 변경하는 공격에 방어할 수 있다.
@@ -516,36 +512,8 @@ tool_server는 받은 데이터의 해시값과 agent_b의 서명을 비교해 �
 ### ` agent_a.py ` 수정
 서명 생성 로직을 추가한다.
 
-## 방어 실행
-### 정상적인 입금
-<img src="images/10.png" alt="alt text" width="845" height="157">
-<img src="images/11.png" alt="alt text" width="864" height="508">
 
-7000원을 입금하면 ` result `에서 Success라는 문자와 함께, client의 bankbook에 총 17000원이 보관되어있는 것을 확인할 수 있다.
-(10000원이 기본적으로 들어있는 금액, 입력칸의 5000은 디폴트 텍스트)
-
-<br />
-
-### 중간자 공격 실행
-<img src="images/12.png" alt="alt text" width="352" height="188">
-
-333원을 입금하는 요청을 intercept하여 계좌명` account `를 ` client `에서 ` adversary `로 변겨애 ` Forward `한다.
-(이때 패킷을 전송하지 않고 intercept하고 있기 때문에 지정해둔 timeout인 180초를 넘기지 않도록 주의한다.)
-
-<br />
-
-<img src="images/13.png" alt="alt text" width="864" height="134">
-
-` Forward `한 결과, Error: Integrity check failed라는 문자와 함께, client의 bankbook에는 333원 입금 요청이 적용되지 않아 여전히 17000원이 보관되어있음을 확인할 수 있다.
-
-<br />
-
-<img src="images/14.png" alt="alt text" width="864" height="388">
-
-또한 adversary의 bankbook에도 333원은 입금되지 않는다.
-
-
-## 방어 시나리오
+## Ⅵ.2 방어 시나리오
     participant User as 👤 사용자 (Browser)
     participant Agent_A as 🏠 Agent A (Web UI)
     participant Agent_B as 🤖 Agent B (Signer)
@@ -580,3 +548,54 @@ tool_server는 받은 데이터의 해시값과 agent_b의 서명을 비교해 �
     Agent_B-->>Agent_A: 에러 메시지 전달
 
     Agent_A-->>User: "데이터 변조가 감지되어 요청이 차단되었습니다."을 확인
+
+
+## Ⅵ.3 방어 실행
+### 정상적인 입금
+<img src="images/10.png" alt="alt text" width="845" height="157">
+<img src="images/11.png" alt="alt text" width="864" height="508">
+
+7000원을 입금하면 ` result `에서 Success라는 문자와 함께, client의 bankbook에 총 17000원이 보관되어있는 것을 확인할 수 있다.
+(10000원이 기본적으로 들어있는 금액, 입력칸의 5000은 디폴트 텍스트)
+
+<br />
+
+### 중간자 공격 실행
+<img src="images/12.png" alt="alt text" width="352" height="188">
+
+333원을 입금하는 요청을 intercept하여 계좌명` account `를 ` client `에서 ` adversary `로 변경해 ` Forward `한다.
+(이때 패킷을 전송하지 않고 intercept하고 있기 때문에 지정해둔 timeout인 180초를 넘기지 않도록 주의한다.)
+
+<br />
+
+<img src="images/13.png" alt="alt text" width="864" height="134">
+
+` Forward `한 결과, Error: Integrity check failed라는 문자와 함께, client의 bankbook에는 333원 입금 요청이 적용되지 않아 여전히 17000원이 보관되어있음을 확인할 수 있다.
+
+<br />
+
+<img src="images/14.png" alt="alt text" width="864" height="388">
+
+또한 adversary의 bankbook에도 333원은 입금되지 않는다.
+
+<br />
+
+# Ⅶ. 한계점 및 확장 가능성
+  본 프로젝트는 도커 환경 내에 Burp Suite CA 인증서를 배포함으로써 HTTPS 트래픽의 복호화와 요청 패킷의 변조 공격을 성공시켰다. 그러나 이는 공격자가 인프라 제어권을 가진 로컬 샌드박스 내에서의 실험이라는 한계가 있다.
+
+  이를 극복하기 위해, 향후에는 서버 측 프록시(Server-side Proxy) 구조를 유지한 채 웹 서비스를 외부에 개방하여 불특정 다수의 요청이 처리되는 과정에서도 중간에서의 패킷 통제 및 변조가 여전히 유효한지 검증할 계획이다. 또한 단순 입출금을 넘어 계좌 관리 및 상품 등록 기능을 추가하여, 메시지 서명(Message Signing) 및 에이전트 측 일관성 검증(Agent-side Consistency Check) 부재로 인해 발생할 수 있는 비즈니스 로직 우회 취약점을 심층 분석하고자 한다.
+
+
+[최종 코드 보러가기](https://github.com/taegyung0217/Agent_MITM/tree/main/week4)
+
+<br />
+
+# 출처
+HMAC 부인방지 제공 여부
+https://m.blog.naver.com/security_reader/221812346268 
+
+별도 공개 도메인 인증서 발급법
+https://growingsaja.tistory.com/696 
+
+Burp CA 발급방법
+https://secuity-lighthouse.tistory.com/15 
